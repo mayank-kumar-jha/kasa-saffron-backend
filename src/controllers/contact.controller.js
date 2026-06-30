@@ -12,7 +12,7 @@ const submitContact = asyncHandler(async (req, res) => {
   });
 
   if (email) {
-    sendInquiryReceivedEmail(email, name);
+    await sendInquiryReceivedEmail(email, name);
   }
 
   return res.status(201).json(new ApiResponse(201, contact, 'Contact request submitted successfully'));

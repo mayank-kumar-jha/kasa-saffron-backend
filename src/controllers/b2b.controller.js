@@ -12,11 +12,11 @@ const submitB2BLead = asyncHandler(async (req, res) => {
   });
 
   // Send email notification to admin
-  sendB2BEnquiryEmail(lead);
+  await sendB2BEnquiryEmail(lead);
   
   // Send confirmation to the user
   if (email) {
-    sendInquiryReceivedEmail(email, contactPerson || companyName);
+    await sendInquiryReceivedEmail(email, contactPerson || companyName);
   }
 
   return res.status(201).json(new ApiResponse(201, lead, 'B2B Lead submitted successfully'));

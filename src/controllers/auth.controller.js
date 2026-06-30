@@ -56,7 +56,7 @@ const registerUser = asyncHandler(async (req, res) => {
   });
 
   // Send Welcome Email
-  sendWelcomeEmail(user.email, user.name);
+  await sendWelcomeEmail(user.email, user.name);
 
   return res.status(201).json(new ApiResponse(201, user, 'User registered successfully'));
 });
