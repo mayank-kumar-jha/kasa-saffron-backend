@@ -42,7 +42,7 @@ import { upload } from '../middlewares/multer.middleware.js';
 import { getUsers, sendBroadcast, getBroadcastHistory } from '../controllers/admin.controller.js';
 
 router.route('/users').get(getUsers);
-router.route('/broadcast').post(upload.array('attachments', 5), sendBroadcast);
-router.route('/broadcast/history').get(getBroadcastHistory);
+// router.route('/broadcast').post(upload.array('attachments', 5), sendBroadcast);
+// router.route('/broadcast/history').get(getBroadcastHistory);
 
 export default router;
