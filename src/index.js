@@ -11,11 +11,12 @@ const PORT = process.env.PORT || 8000;
 
 const startServer = async () => {
   try {
-    // We would typically connect to DB explicitly here, but Prisma connects automatically on first query.
-    // However, it's good practice to test the connection.
-    app.listen(PORT, () => {
-      logger.info(`Server is running on port ${PORT}`);
-    });
+    // Only listen on port if not in Vercel environment (Vercel uses serverless exports)
+    if (process.env.NODE_ENV !== 'production' || process.env.RENDER) {
+      app.listen(PORT, () => {
+        logger.info(`Server is running on port ${PORT}`);
+      });
+    }
   } catch (error) {
     logger.error('Failed to start server:', error);
     process.exit(1);
@@ -23,3 +24,6 @@ const startServer = async () => {
 };
 
 startServer();
+
+// Export the app for Vercel serverless environment
+export default app;
