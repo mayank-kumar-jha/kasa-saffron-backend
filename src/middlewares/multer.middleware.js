@@ -1,11 +1,16 @@
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 
-// Ensure uploads directory exists
-const uploadDir = 'public/temp';
+// Use OS temp directory for serverless compatibility (Vercel is read-only)
+const uploadDir = process.env.NODE_ENV === 'production' || process.env.VERCEL ? os.tmpdir() : 'public/temp';
 if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+  try {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  } catch (err) {
+    console.warn(`Could not create upload directory ${uploadDir}:`, err.message);
+  }
 }
 
 const storage = multer.diskStorage({
