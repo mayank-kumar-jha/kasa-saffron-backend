@@ -1,0 +1,358 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                      String     @id @default(uuid())
+  name                    String
+  email                   String     @unique
+  password                String?
+  role                    Role       @default(CUSTOMER)
+  isEmailVerified         Boolean    @default(false)
+  refreshToken            String?
+  googleId                String?    @unique
+  avatar                  String?
+  createdAt               DateTime   @default(now())
+  updatedAt               DateTime   @updatedAt
+  deletedAt               DateTime?
+  phone                   String?
+  resetPasswordOtp        String?
+  resetPasswordOtpExpires DateTime?
+  addresses               Address[]
+  cart                    Cart?
+  emailLogs               EmailLog[]
+  orders                  Order[]
+  reviews                 Review[]
+}
+
+model Address {
+  id             String   @id @default(uuid())
+  userId         String
+  street         String
+  city           String
+  state          String
+  zip            String
+  country        String
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  billingOrders  Order[]  @relation("BillingAddress")
+  shippingOrders Order[]  @relation("ShippingAddress")
+
+  @@index([userId])
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+}
+
+model Product {
+  id            String         @id @default(uuid())
+  categoryId    String?
+  name          Json
+  tagline       Json
+  description   Json
+  spanishName   String         @default("")
+  image         String         @default("")
+  slug          String         @unique @default(uuid())
+  price500g     Float          @default(0)
+  price1kg      Float          @default(0)
+  stock         Int            @default(0)
+  sku           String?        @unique
+  status        ProductStatus  @default(ACTIVE)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+  ingredients   Json?
+  notes         Json?
+  cartItems     CartItem[]
+  inventoryLogs InventoryLog[]
+  orderItems    OrderItem[]
+  category      Category?      @relation(fields: [categoryId], references: [id])
+  reviews       Review[]
+
+  @@index([categoryId])
+  @@index([deletedAt])
+}
+
+model Order {
+  id                String      @id @default(uuid())
+  userId            String
+  status            OrderStatus @default(PENDING)
+  totalAmount       Float
+  paymentIntentId   String?     @unique
+  stripeCustomerId  String?
+  shippingAddressId String
+  billingAddressId  String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  billingAddress    Address?    @relation("BillingAddress", fields: [billingAddressId], references: [id])
+  shippingAddress   Address     @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
+  user              User        @relation(fields: [userId], references: [id])
+  orderItems        OrderItem[]
+  payment           Payment?
+
+  @@index([userId])
+  @@index([shippingAddressId])
+  @@index([billingAddressId])
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  productId String
+  quantity  Int
+  price     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  size      String   @default("500g")
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Payment {
+  id              String   @id @default(uuid())
+  orderId         String   @unique
+  stripePaymentId String   @unique
+  amount          Float
+  status          String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Cart {
+  id        String     @id @default(uuid())
+  userId    String?    @unique
+  sessionId String?    @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cartItems CartItem[]
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  productId String
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  size      String   @default("500g")
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId, size])
+  @@index([productId])
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([productId])
+}
+
+model Coupon {
+  id         String     @id @default(uuid())
+  code       String     @unique
+  type       CouponType
+  value      Float
+  expiryDate DateTime?
+  usageLimit Int?
+  usedCount  Int        @default(0)
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model ContactRequest {
+  id        String        @id @default(uuid())
+  name      String
+  email     String
+  subject   String?
+  message   String
+  status    ContactStatus @default(NEW)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model B2BLead {
+  id              String    @id @default(uuid())
+  companyName     String
+  contactPerson   String
+  phone           String
+  email           String
+  businessType    String
+  estimatedVolume String
+  notes           String?
+  status          B2BStatus @default(NEW)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model InventoryLog {
+  id              String   @id @default(uuid())
+  productId       String
+  quantityChanged Int
+  reason          String
+  createdAt       DateTime @default(now())
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model Event {
+  id          String   @id @default(uuid())
+  titleEn     String
+  titleEs     String   @default("")
+  titleCat    String   @default("")
+  date        String
+  time        String   @default("")
+  location    String   @default("")
+  descEn      String   @default("")
+  descEs      String   @default("")
+  descCat     String   @default("")
+  image       String   @default("")
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model GalleryImage {
+  id         String   @id @default(uuid())
+  nameEn     String   @default("")
+  nameEs     String   @default("")
+  nameCat    String   @default("")
+  taglineEn  String   @default("")
+  taglineEs  String   @default("")
+  taglineCat String   @default("")
+  imageUrl   String
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([sortOrder])
+}
+
+model SiteContent {
+  id        String   @id @default(uuid())
+  section   String
+  lang      String   @default("en")
+  key       String
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([section, lang, key])
+  @@index([section])
+}
+
+model AdminSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model EmailCampaign {
+  id        String     @id @default(uuid())
+  subject   String
+  body      String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  logs      EmailLog[]
+}
+
+model EmailLog {
+  id         String        @id @default(uuid())
+  campaignId String
+  userId     String?
+  email      String
+  status     EmailStatus   @default(SENT)
+  errorMsg   String?
+  sentAt     DateTime      @default(now())
+  campaign   EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user       User?         @relation(fields: [userId], references: [id])
+
+  @@index([campaignId])
+  @@index([userId])
+}
+
+model playing_with_neon {
+  id    Int    @id @default(autoincrement())
+  name  String
+  value Float? @db.Real
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+  MANAGER
+  SUPER_ADMIN
+}
+
+enum ProductStatus {
+  ACTIVE
+  OUT_OF_STOCK
+  ARCHIVED
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  PAID
+  PREPARING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum ContactStatus {
+  NEW
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum B2BStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  PROPOSAL_SENT
+  CONVERTED
+  REJECTED
+}
+
+enum CouponType {
+  PERCENTAGE
+  FIXED
+}
+
+enum EmailStatus {
+  SENT
+  FAILED
+}
