@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
+    "build": "prisma generate && prisma db push",
     "db:push": "prisma db push",
     "db:generate": "prisma generate"
   },
