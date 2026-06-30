@@ -206,7 +206,38 @@ export const sendPasswordResetOtpEmail = async (email, otp) => {
     console.log('Password reset email sent: %s', info.messageId);
     return true;
   } catch (error) {
-    console.error('Error setting up password reset email: ', error);
+    console.error('Error sending custom email:', error);
     throw error;
+  }
+};
+
+export const sendPaymentConfirmationEmail = async (email, name, orderId, totalAmount) => {
+  try {
+    const mailOptions = {
+      from: '"Kasa Saffron" <info@kasasaffron.com>',
+      to: email,
+      subject: 'Payment Confirmation - Kasa Saffron',
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #E6C587; border-radius: 8px; overflow: hidden;">
+          <div style="background-color: #2c0107; padding: 30px; text-align: center;">
+            <h2 style="color: #E6C587; margin: 0; font-family: 'Times New Roman', serif; letter-spacing: 2px;">PAYMENT SUCCESSFUL</h2>
+          </div>
+          <div style="padding: 40px 30px; background-color: #fdfaf5; text-align: center;">
+            <p style="font-size: 18px; color: #BD561A; font-weight: bold; margin-bottom: 20px;">Dear ${name || 'Customer'},</p>
+            <p style="font-size: 16px; margin-bottom: 20px;">We have successfully received your payment of <b>€${totalAmount}</b> for Order #${orderId.substring(0,8).toUpperCase()}.</p>
+            <p style="font-size: 16px; margin-bottom: 30px;">Your order is now being processed. We will notify you once it has been shipped or is ready for pickup.</p>
+            
+            <p style="font-size: 14px; color: #666; margin-top: 40px;">Thank you for choosing Kasa Saffron.</p>
+          </div>
+        </div>
+      `,
+    };
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Payment confirmation email sent: %s', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('Error sending payment confirmation email:', error);
+    // don't throw to prevent crashing the checkout flow
+    return false;
   }
 };

@@ -3,6 +3,7 @@ import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import prisma from '../config/db.js';
 import Stripe from 'stripe';
+import { sendPaymentConfirmationEmail } from '../utils/email.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -175,6 +176,12 @@ const stripeWebhook = asyncHandler(async (req, res) => {
       // Clear cart
       await tx.cart.deleteMany({ where: { userId: order.userId } });
     });
+
+    // Send confirmation email
+    const userToEmail = await prisma.user.findUnique({ where: { id: order.userId } });
+    if (userToEmail && userToEmail.email) {
+      await sendPaymentConfirmationEmail(userToEmail.email, userToEmail.name, order.id, order.totalAmount);
+    }
   }
 
   return res.status(200).json({ received: true });
@@ -233,6 +240,12 @@ const confirmPaymentStatus = asyncHandler(async (req, res) => {
     }
     await tx.cart.deleteMany({ where: { userId: order.userId } });
   });
+
+  // Fetch user for email if not included
+  const userToEmail = await prisma.user.findUnique({ where: { id: order.userId } });
+  if (userToEmail && userToEmail.email) {
+    await sendPaymentConfirmationEmail(userToEmail.email, userToEmail.name, order.id, order.totalAmount);
+  }
 
   return res.status(200).json(new ApiResponse(200, order, "Payment confirmed successfully"));
 });
