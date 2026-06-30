@@ -180,4 +180,61 @@ const stripeWebhook = asyncHandler(async (req, res) => {
   return res.status(200).json({ received: true });
 });
 
-export { createCheckoutSession, stripeWebhook };
+// Explicit confirmation endpoint to prevent "pending" status if webhooks fail or are unconfigured
+const confirmPaymentStatus = asyncHandler(async (req, res) => {
+  const { paymentIntentId, orderId } = req.body;
+  if (!paymentIntentId || !orderId) {
+    throw new ApiError(400, "Missing payment intent or order ID");
+  }
+
+  // Verify directly with Stripe
+  const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+  
+  if (paymentIntent.status !== 'succeeded') {
+    return res.status(400).json(new ApiResponse(400, null, "Payment not succeeded in Stripe"));
+  }
+
+  // Check if already paid
+  const existingOrder = await prisma.order.findUnique({ where: { id: orderId } });
+  if (existingOrder && existingOrder.status !== 'PENDING') {
+    return res.status(200).json(new ApiResponse(200, existingOrder, "Order already processed"));
+  }
+
+  // Process payment
+  const order = await prisma.order.update({
+    where: { id: orderId },
+    data: { status: 'PAID' },
+    include: { orderItems: true },
+  });
+
+  await prisma.payment.upsert({
+    where: { stripePaymentId: paymentIntent.id },
+    update: {},
+    create: {
+      orderId,
+      stripePaymentId: paymentIntent.id,
+      amount: paymentIntent.amount / 100,
+      status: 'SUCCEEDED',
+    },
+  });
+
+  await prisma.$transaction(async (tx) => {
+    for (const item of order.orderItems) {
+      const product = await tx.product.findUnique({ where: { id: item.productId } });
+      if (product && product.stock >= item.quantity) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stock: { decrement: item.quantity } },
+        });
+        await tx.inventoryLog.create({
+          data: { productId: item.productId, quantityChanged: -item.quantity, reason: `Order ${orderId} placed (Explicit Confirmation)` },
+        });
+      }
+    }
+    await tx.cart.deleteMany({ where: { userId: order.userId } });
+  });
+
+  return res.status(200).json(new ApiResponse(200, order, "Payment confirmed successfully"));
+});
+
+export { createCheckoutSession, stripeWebhook, confirmPaymentStatus };
