@@ -355,10 +355,6 @@ const sendBroadcast = asyncHandler(async (req, res) => {
     path: file.path
   }));
 
-  // Send emails asynchronously without blocking the response
-  // To avoid timeouts on huge lists, we do it in the background
-  res.status(200).json(new ApiResponse(200, { campaignId: campaign.id, count: targetUsers.length }, 'Broadcast started'));
-
   const logsData = [];
   for (const user of targetUsers) {
     const result = await sendCustomEmail(user.email, subject, body, attachments);
@@ -379,6 +375,10 @@ const sendBroadcast = asyncHandler(async (req, res) => {
   for (const file of req.files || []) {
     fs.unlink(file.path, () => {});
   }
+
+  // On Vercel Serverless, we MUST send the response AFTER processing finishes,
+  // otherwise the process is frozen and background tasks are killed immediately.
+  res.status(200).json(new ApiResponse(200, { campaignId: campaign.id, count: targetUsers.length }, 'Broadcast finished'));
 });
 
 const getBroadcastHistory = asyncHandler(async (req, res) => {

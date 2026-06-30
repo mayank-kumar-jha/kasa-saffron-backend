@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { emailQueue } from './emailQueue.js';
+
 const transporter = nodemailer.createTransport({
   host: 'smtp.office365.com',
   port: 587,
@@ -42,14 +42,8 @@ export const sendWelcomeEmail = async (email, name) => {
       `,
     };
 
-    emailQueue.enqueue(async () => {
-      try {
-        const info = await transporter.sendMail(mailOptions);
-        console.log('Welcome email sent: %s', info.messageId);
-      } catch (err) {
-        console.error('Error sending welcome email in queue: ', err);
-      }
-    });
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Welcome email sent: %s', info.messageId);
     return true; // return immediately
   } catch (error) {
     console.error('Error setting up welcome email: ', error);
@@ -114,14 +108,8 @@ export const sendB2BEnquiryEmail = async (leadData, toEmail = 'info@kasasaffron.
       `,
     };
 
-    emailQueue.enqueue(async () => {
-      try {
-        const info = await transporter.sendMail(mailOptions);
-        console.log('B2B enquiry email sent: %s', info.messageId);
-      } catch (err) {
-        console.error('Error sending B2B enquiry email in queue: ', err);
-      }
-    });
+    const info = await transporter.sendMail(mailOptions);
+    console.log('B2B enquiry email sent: %s', info.messageId);
     return true;
   } catch (error) {
     console.error('Error setting up B2B email: ', error);
@@ -156,14 +144,8 @@ export const sendInquiryReceivedEmail = async (email, name) => {
       `,
     };
 
-    emailQueue.enqueue(async () => {
-      try {
-        const info = await transporter.sendMail(mailOptions);
-        console.log('Inquiry received email sent: %s', info.messageId);
-      } catch (err) {
-        console.error('Error sending inquiry received email in queue: ', err);
-      }
-    });
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Inquiry received email sent: %s', info.messageId);
     return true;
   } catch (error) {
     console.error('Error setting up inquiry received email: ', error);
@@ -179,15 +161,9 @@ export const sendCustomEmail = async (toEmail, subject, htmlContent, attachments
       html: htmlContent,
       attachments: attachments,
     };
-    emailQueue.enqueue(async () => {
-      try {
-        const info = await transporter.sendMail(mailOptions);
-        console.log('Custom email sent to %s: %s', toEmail, info.messageId);
-      } catch (err) {
-        console.error(`Error sending custom email to ${toEmail} in queue: `, err);
-      }
-    });
-    return { success: true, queued: true };
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Custom email sent to %s: %s', toEmail, info.messageId);
+    return { success: true, queued: false };
   } catch (error) {
     console.error(`Error setting up custom email to ${toEmail}: `, error);
     return { success: false, error: error.message };
@@ -226,14 +202,8 @@ export const sendPasswordResetOtpEmail = async (email, otp) => {
       `,
     };
 
-    emailQueue.enqueue(async () => {
-      try {
-        const info = await transporter.sendMail(mailOptions);
-        console.log('Password reset email sent: %s', info.messageId);
-      } catch (err) {
-        console.error('Error sending password reset email in queue: ', err);
-      }
-    });
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Password reset email sent: %s', info.messageId);
     return true;
   } catch (error) {
     console.error('Error setting up password reset email: ', error);
