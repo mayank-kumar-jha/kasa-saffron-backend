@@ -1,4 +1,4 @@
-import { Resend } from 'resend';
+ï»¿import { Resend } from 'resend';
 
 // Initialize Resend with the API key from environment variables
 const resend = new Resend(process.env.RESEND_API_KEY || 're_fallback_key');
@@ -6,7 +6,7 @@ const resend = new Resend(process.env.RESEND_API_KEY || 're_fallback_key');
 // Note: To send emails in production, your sender address must be a verified domain in Resend
 // e.g., 'Kasa Saffron <info@kasasaffron.com>' if kasasaffron.com is verified on Resend.
 // For testing without a verified domain, Resend allows sending from 'onboarding@resend.dev' to your registered email only.
-const SENDER_EMAIL = process.env.NODE_ENV === 'production' 
+const SENDER_EMAIL = process.env.RESEND_DOMAIN_VERIFIED === 'true' 
   ? 'Kasa Saffron <info@kasasaffron.com>' 
   : 'Kasa Saffron <onboarding@resend.dev>'; 
 
@@ -36,7 +36,7 @@ export const sendWelcomeEmail = async (email, name) => {
             <p style="font-size: 16px; color: #720303; font-weight: bold; font-family: 'Times New Roman', serif; margin-top: 5px;">The Kasa Saffron Team</p>
           </div>
           <div style="background-color: #f4e4cf; padding: 15px; text-align: center; font-size: 12px; color: #888;">
-            <p style="margin: 0;">© ${new Date().getFullYear()} Kasa Saffron. All rights reserved.</p>
+            <p style="margin: 0;">Â© ${new Date().getFullYear()} Kasa Saffron. All rights reserved.</p>
           </div>
         </div>
       `,
@@ -148,7 +148,7 @@ export const sendInquiryReceivedEmail = async (email, name) => {
             <p style="font-size: 16px; color: #720303; font-weight: bold; font-family: 'Times New Roman', serif; margin-top: 5px;">The Kasa Saffron Team</p>
           </div>
           <div style="background-color: #f4e4cf; padding: 15px; text-align: center; font-size: 12px; color: #888;">
-            <p style="margin: 0;">© ${new Date().getFullYear()} Kasa Saffron. All rights reserved.</p>
+            <p style="margin: 0;">Â© ${new Date().getFullYear()} Kasa Saffron. All rights reserved.</p>
           </div>
         </div>
       `,
@@ -216,7 +216,7 @@ export const sendPasswordResetOtpEmail = async (email, otp) => {
             <p style="font-size: 16px; color: #720303; font-weight: bold; font-family: 'Times New Roman', serif; margin-top: 5px;">The Kasa Saffron Team</p>
           </div>
           <div style="background-color: #f4e4cf; padding: 15px; text-align: center; font-size: 12px; color: #888;">
-            <p style="margin: 0;">© ${new Date().getFullYear()} Kasa Saffron. All rights reserved.</p>
+            <p style="margin: 0;">Â© ${new Date().getFullYear()} Kasa Saffron. All rights reserved.</p>
           </div>
         </div>
       `,
@@ -261,7 +261,7 @@ export const sendRegistrationOtpEmail = async (email, otp) => {
             <p style="font-size: 16px; color: #720303; font-weight: bold; font-family: 'Times New Roman', serif; margin-top: 5px;">The Kasa Saffron Team</p>
           </div>
           <div style="background-color: #f4e4cf; padding: 15px; text-align: center; font-size: 12px; color: #888;">
-            <p style="margin: 0;">© ${new Date().getFullYear()} Kasa Saffron. All rights reserved.</p>
+            <p style="margin: 0;">Â© ${new Date().getFullYear()} Kasa Saffron. All rights reserved.</p>
           </div>
         </div>
       `,
@@ -293,7 +293,7 @@ export const sendPaymentConfirmationEmail = async (email, name, orderId, totalAm
           </div>
           <div style="padding: 40px 30px; background-color: #fdfaf5; text-align: center;">
             <p style="font-size: 18px; color: #BD561A; font-weight: bold; margin-bottom: 20px;">Dear ${name || 'Customer'},</p>
-            <p style="font-size: 16px; margin-bottom: 20px;">We have successfully received your payment of <b>€${totalAmount}</b> for Order #${orderId.substring(0,8).toUpperCase()}.</p>
+            <p style="font-size: 16px; margin-bottom: 20px;">We have successfully received your payment of <b>â‚¬${totalAmount}</b> for Order #${orderId.substring(0,8).toUpperCase()}.</p>
             <p style="font-size: 16px; margin-bottom: 30px;">Your order is now being processed. We will notify you once it has been shipped or is ready for pickup.</p>
             
             <p style="font-size: 14px; color: #666; margin-top: 40px;">Thank you for choosing Kasa Saffron.</p>
