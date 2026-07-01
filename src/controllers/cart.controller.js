@@ -54,9 +54,10 @@ const addToCart = asyncHandler(async (req, res) => {
   if (product.deletedAt) throw new ApiError(400, 'Product is no longer available');
   if (product.status !== 'ACTIVE') throw new ApiError(400, 'Product is currently unavailable');
 
-  if (product.stock < quantity) {
-    throw new ApiError(400, `Not enough stock. Only ${product.stock} unit(s) available.`);
-  }
+  // Stock validation intentionally disabled — customers can add to cart regardless of stock
+  // if (product.stock < quantity) {
+  //   throw new ApiError(400, `Not enough stock. Only ${product.stock} unit(s) available.`);
+  // }
 
   let cart = await prisma.cart.findFirst({
     where: userId ? { userId } : { sessionId },
@@ -81,9 +82,10 @@ const addToCart = asyncHandler(async (req, res) => {
   let cartItem;
   if (existingCartItem) {
     const newQuantity = existingCartItem.quantity + quantity;
-    if (newQuantity > product.stock) {
-      throw new ApiError(400, `Cannot add more than available stock (${product.stock} unit(s)).`);
-    }
+    // Stock check intentionally disabled
+    // if (newQuantity > product.stock) {
+    //   throw new ApiError(400, `Cannot add more than available stock (${product.stock} unit(s)).`);
+    // }
     cartItem = await prisma.cartItem.update({
       where: { id: existingCartItem.id },
       data: { quantity: newQuantity },
@@ -113,9 +115,10 @@ const updateCartItem = asyncHandler(async (req, res) => {
 
   if (!cartItem) throw new ApiError(404, 'Cart item not found');
 
-  if (quantity > cartItem.product.stock) {
-    throw new ApiError(400, `Not enough stock. Only ${cartItem.product.stock} unit(s) available.`);
-  }
+  // Stock validation intentionally disabled
+  // if (quantity > cartItem.product.stock) {
+  //   throw new ApiError(400, `Not enough stock. Only ${cartItem.product.stock} unit(s) available.`);
+  // }
 
   const updatedCartItem = await prisma.cartItem.update({
     where: { id: cartItemId },

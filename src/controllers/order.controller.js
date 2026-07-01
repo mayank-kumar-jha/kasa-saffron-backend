@@ -70,10 +70,10 @@ const createCheckoutSession = asyncHandler(async (req, res) => {
       throw new ApiError(400, `Product "${item.productId}" is currently unavailable`);
     }
 
-    // Stock validation — enforced
-    if (product.stock < item.quantity) {
-      throw new ApiError(400, `Not enough stock available. Only ${product.stock} unit(s) left.`);
-    }
+    // Stock validation intentionally disabled — customers can order even if stock is low
+    // if (product.stock < item.quantity) {
+    //   throw new ApiError(400, `Not enough stock available. Only ${product.stock} unit(s) left.`);
+    // }
 
     // Determine correct price based on size (server-side, never trust client price)
     const itemPrice = item.size === '500g' ? product.price500g : product.price1kg;
