@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getCart, addToCart, updateCartItem, removeCartItem } from '../controllers/cart.controller.js';
+import { getCart, addToCart, updateCartItem, removeCartItem, mergeCart } from '../controllers/cart.controller.js';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 
 const router = Router();
@@ -15,6 +15,7 @@ const optionalAuth = (req, res, next) => {
 router.use(optionalAuth);
 
 router.route('/').get(getCart).post(addToCart);
+router.route('/merge').post(verifyJWT, mergeCart);
 router.route('/:cartItemId').patch(updateCartItem).delete(removeCartItem);
 
 export default router;

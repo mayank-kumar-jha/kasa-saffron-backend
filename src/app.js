@@ -60,20 +60,34 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: 24 * 60 * 60 * 1000 // 1 day
   }
 }));
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Rate Limiter
+// Rate Limiter — general API
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // Limit each IP to 1000 requests per windowMs
+  max: 500,
   standardHeaders: true,
   legacyHeaders: false,
 });
 app.use('/api', limiter);
+
+// Strict rate limiter for sensitive auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 15, // max 15 attempts per 15 mins per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { statusCode: 429, message: 'Too many attempts. Please try again in 15 minutes.' },
+});
+app.use('/api/v1/auth/login', authLimiter);
+app.use('/api/v1/auth/register', authLimiter);
+app.use('/api/v1/auth/verify-registration-otp', authLimiter);
+app.use('/api/v1/auth/forgot-password', authLimiter);
 
 // Logging
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));

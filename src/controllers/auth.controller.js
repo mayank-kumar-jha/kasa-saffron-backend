@@ -29,6 +29,13 @@ const generateAccessAndRefreshTokens = async (userId) => {
   return { accessToken, refreshToken };
 };
 
+// Shared secure cookie options
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+};
+
 const registerUser = asyncHandler(async (req, res) => {
   let { name, email, password, phone } = req.body;
   email = email.toLowerCase();
@@ -78,9 +85,19 @@ const verifyEmailOtp = asyncHandler(async (req, res) => {
   email = email.toLowerCase();
   
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || user.signupOtp !== otp || user.signupOtpExpires < new Date()) {
-    console.error(`OTP verify failed for ${email}: user=${!!user}, expectedOtp=${user?.signupOtp}, receivedOtp=${otp}, isExpired=${user ? user.signupOtpExpires < new Date() : false}`);
+
+  if (!user) {
     throw new ApiError(400, 'Invalid or expired OTP');
+  }
+
+  // OTP expiry check
+  if (!user.signupOtp || user.signupOtpExpires < new Date()) {
+    throw new ApiError(400, 'OTP has expired. Please request a new one by signing up again.');
+  }
+
+  // OTP value check
+  if (user.signupOtp !== otp) {
+    throw new ApiError(400, 'Invalid OTP. Please check and try again.');
   }
 
   // Verify user
@@ -96,15 +113,15 @@ const verifyEmailOtp = asyncHandler(async (req, res) => {
   // Log them in immediately
   const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user.id);
   const loggedInUser = { id: user.id, name: user.name, email: user.email, role: user.role };
-  const options = { httpOnly: true, secure: process.env.NODE_ENV === 'production' };
 
-  // Send the welcome email now that they are fully registered
-  await sendWelcomeEmail(user.email, user.name);
+  // Send welcome email — fire-and-forget, do not block login response
+  sendWelcomeEmail(user.email, user.name)
+    .catch(err => console.error('Failed to send welcome email:', err));
 
   return res
     .status(200)
-    .cookie('accessToken', accessToken, options)
-    .cookie('refreshToken', refreshToken, options)
+    .cookie('accessToken', accessToken, cookieOptions)
+    .cookie('refreshToken', refreshToken, cookieOptions)
     .json(new ApiResponse(200, { user: loggedInUser, accessToken, refreshToken }, 'User verified and logged in successfully'));
 });
 
@@ -134,15 +151,10 @@ const loginUser = asyncHandler(async (req, res) => {
 
   const loggedInUser = { id: user.id, name: user.name, email: user.email, role: user.role };
 
-  const options = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-  };
-
   return res
     .status(200)
-    .cookie('accessToken', accessToken, options)
-    .cookie('refreshToken', refreshToken, options)
+    .cookie('accessToken', accessToken, cookieOptions)
+    .cookie('refreshToken', refreshToken, cookieOptions)
     .json(new ApiResponse(200, { user: loggedInUser, accessToken, refreshToken }, 'User logged in successfully'));
 });
 
@@ -152,15 +164,10 @@ const logoutUser = asyncHandler(async (req, res) => {
     data: { refreshToken: null },
   });
 
-  const options = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-  };
-
   return res
     .status(200)
-    .clearCookie('accessToken', options)
-    .clearCookie('refreshToken', options)
+    .clearCookie('accessToken', cookieOptions)
+    .clearCookie('refreshToken', cookieOptions)
     .json(new ApiResponse(200, {}, 'User logged out successfully'));
 });
 
@@ -186,15 +193,10 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
     const { accessToken, refreshToken: newRefreshToken } = await generateAccessAndRefreshTokens(user.id);
 
-    const options = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-    };
-
     return res
       .status(200)
-      .cookie('accessToken', accessToken, options)
-      .cookie('refreshToken', newRefreshToken, options)
+      .cookie('accessToken', accessToken, cookieOptions)
+      .cookie('refreshToken', newRefreshToken, cookieOptions)
       .json(new ApiResponse(200, { accessToken, refreshToken: newRefreshToken }, 'Access token refreshed'));
   } catch (error) {
     throw new ApiError(401, error?.message || 'Invalid refresh token');
@@ -214,10 +216,7 @@ const oauthCallback = asyncHandler(async (req, res) => {
 
   const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(req.user.id);
 
-  const options = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-  };
+  const options = cookieOptions;
 
   // We redirect to frontend and pass the user id / token in query param for one-time sync
   // Then the frontend will store it in localStorage.
@@ -229,8 +228,7 @@ const oauthCallback = asyncHandler(async (req, res) => {
     .status(200)
     .cookie('accessToken', accessToken, options)
     .cookie('refreshToken', refreshToken, options)
-    .redirect(`${frontendUrl}/?token=${accessToken}&user=${userJson}`);
-});
+    .redirect(`${frontendUrl}/?token=${accessToken}&user=${userJson}`);});
 
 const forgotPassword = asyncHandler(async (req, res) => {
   let { email } = req.body;

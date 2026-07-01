@@ -15,6 +15,16 @@ const createCheckoutSession = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Cart is empty');
   }
 
+  // Validate items structure
+  for (const item of items) {
+    if (!item.productId || !item.quantity || item.quantity < 1) {
+      throw new ApiError(400, 'Invalid cart item: productId and quantity are required');
+    }
+    if (!item.size || !['500g', '1kg'].includes(item.size)) {
+      throw new ApiError(400, `Invalid size "${item.size}" for product. Must be 500g or 1kg`);
+    }
+  }
+
   // Handle missing address for Store Pickup
   let addressId = shippingAddressId;
   if (!addressId) {
@@ -41,45 +51,44 @@ const createCheckoutSession = asyncHandler(async (req, res) => {
 
   let totalAmount = 0;
   const orderItemsList = [];
-  let allProductsCache = null;
 
   for (const item of items) {
-    // In case item.productId is a mock number (like fallback catalog id 1, 2, 3), try to find product by slug or spanishName or fallback to any active product
-    let product = await prisma.product.findUnique({
+    // Strict product lookup — no fallback, no guessing
+    const product = await prisma.product.findUnique({
       where: { id: item.productId }
     });
 
     if (!product) {
-      // Fallback search to handle mock numeric IDs matching seeded/custom products
-      if (!allProductsCache) {
-        allProductsCache = await prisma.product.findMany();
-      }
-      
-      if (allProductsCache.length > 0) {
-        // Match by index or slug or just default to first product
-        const matchedIndex = parseInt(item.productId, 10) - 1;
-        if (!isNaN(matchedIndex) && allProductsCache[matchedIndex]) {
-          product = allProductsCache[matchedIndex];
-        } else {
-          product = allProductsCache[0];
-        }
-      } else {
-        throw new ApiError(404, `Product not found in database`);
-      }
+      throw new ApiError(404, `Product not found: ${item.productId}`);
     }
 
-    // if (product.stock < item.quantity) {
-    //   throw new ApiError(400, `Not enough stock for product`);
-    // }
+    if (product.deletedAt) {
+      throw new ApiError(400, `Product is no longer available`);
+    }
 
-    // Determine correct price based on size
+    if (product.status !== 'ACTIVE') {
+      throw new ApiError(400, `Product "${item.productId}" is currently unavailable`);
+    }
+
+    // Stock validation — enforced
+    if (product.stock < item.quantity) {
+      throw new ApiError(400, `Not enough stock available. Only ${product.stock} unit(s) left.`);
+    }
+
+    // Determine correct price based on size (server-side, never trust client price)
     const itemPrice = item.size === '500g' ? product.price500g : product.price1kg;
+
+    if (itemPrice <= 0) {
+      throw new ApiError(400, `Product price is not configured for size ${item.size}`);
+    }
+
     totalAmount += itemPrice * item.quantity;
 
     orderItemsList.push({
       productId: product.id,
       quantity: item.quantity,
-      price: itemPrice
+      price: itemPrice,
+      size: item.size, // persist the size chosen by customer
     });
   }
 
@@ -105,7 +114,7 @@ const createCheckoutSession = asyncHandler(async (req, res) => {
   const paymentIntent = await stripe.paymentIntents.create({
     amount: Math.round(totalAmount * 100), // Stripe takes amount in cents
     currency: 'eur',
-    description: `Export Order ${order.id} for Kasa Saffron`,
+    description: `Order ${order.id} for Kasa Saffron`,
     shipping: {
       name: req.user?.name || 'Customer',
       address: {
@@ -127,6 +136,7 @@ const createCheckoutSession = asyncHandler(async (req, res) => {
 
   return res.status(200).json(new ApiResponse(200, { clientSecret: paymentIntent.client_secret, orderId: order.id }, 'Checkout session created'));
 });
+
 
 const stripeWebhook = asyncHandler(async (req, res) => {
   const sig = req.headers['stripe-signature'];
@@ -178,10 +188,11 @@ const stripeWebhook = asyncHandler(async (req, res) => {
       await tx.cart.deleteMany({ where: { userId: order.userId } });
     });
 
-    // Send confirmation email
+    // Send confirmation email — fire-and-forget, do not block the webhook response
     const userToEmail = await prisma.user.findUnique({ where: { id: order.userId } });
     if (userToEmail && userToEmail.email) {
-      await sendPaymentConfirmationEmail(userToEmail.email, userToEmail.name, order.id, order.totalAmount);
+      sendPaymentConfirmationEmail(userToEmail.email, userToEmail.name, order.id, order.totalAmount)
+        .catch(err => console.error('Failed to send payment confirmation email:', err));
     }
   }
 
@@ -242,10 +253,11 @@ const confirmPaymentStatus = asyncHandler(async (req, res) => {
     await tx.cart.deleteMany({ where: { userId: order.userId } });
   });
 
-  // Fetch user for email if not included
+  // Send email — fire-and-forget, do not block the confirm response
   const userToEmail = await prisma.user.findUnique({ where: { id: order.userId } });
   if (userToEmail && userToEmail.email) {
-    await sendPaymentConfirmationEmail(userToEmail.email, userToEmail.name, order.id, order.totalAmount);
+    sendPaymentConfirmationEmail(userToEmail.email, userToEmail.name, order.id, order.totalAmount)
+      .catch(err => console.error('Failed to send payment confirmation email:', err));
   }
 
   return res.status(200).json(new ApiResponse(200, order, "Payment confirmed successfully"));
