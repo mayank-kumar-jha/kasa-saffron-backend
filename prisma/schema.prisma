@@ -23,6 +23,8 @@ model User {
   phone                   String?
   resetPasswordOtp        String?
   resetPasswordOtpExpires DateTime?
+  signupOtp               String?
+  signupOtpExpires        DateTime?
   addresses               Address[]
   cart                    Cart?
   emailLogs               EmailLog[]

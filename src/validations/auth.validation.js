@@ -30,9 +30,17 @@ const resetPasswordSchema = z.object({
   }),
 });
 
+const verifyRegistrationOtpSchema = z.object({
+  body: z.object({
+    email: z.string().email('Invalid email format'),
+    otp: z.string().length(6, 'OTP must be 6 digits'),
+  }),
+});
+
 export const authValidation = {
   registerSchema,
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  verifyRegistrationOtpSchema,
 };

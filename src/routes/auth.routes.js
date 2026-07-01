@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { registerUser, loginUser, logoutUser, refreshAccessToken, getCurrentUser, oauthCallback, forgotPassword, resetPassword } from '../controllers/auth.controller.js';
+import { registerUser, loginUser, logoutUser, refreshAccessToken, getCurrentUser, oauthCallback, forgotPassword, resetPassword, verifyEmailOtp } from '../controllers/auth.controller.js';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 import { validate } from '../middlewares/validate.middleware.js';
 import { authValidation } from '../validations/auth.validation.js';
@@ -13,6 +13,8 @@ router.route('/refresh-token').post(refreshAccessToken);
 
 router.route('/forgot-password').post(validate(authValidation.forgotPasswordSchema), forgotPassword);
 router.route('/reset-password').post(validate(authValidation.resetPasswordSchema), resetPassword);
+
+router.route('/verify-registration-otp').post(validate(authValidation.verifyRegistrationOtpSchema), verifyEmailOtp);
 
 // OAuth Google Routes
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));

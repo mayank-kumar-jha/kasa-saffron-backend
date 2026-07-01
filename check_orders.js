@@ -1,11 +1,15 @@
 import { PrismaClient } from '@prisma/client';
+import dotenv from 'dotenv';
+dotenv.config();
 const prisma = new PrismaClient();
-async function run() {
-  const orders = await prisma.order.findMany({
-    where: { status: 'PENDING' },
+
+async function check() {
+  const latestOrders = await prisma.order.findMany({
     orderBy: { createdAt: 'desc' },
-    include: { user: true }
+    take: 5,
+    include: { payment: true, user: true }
   });
-  console.log(JSON.stringify(orders, null, 2));
+  console.log(JSON.stringify(latestOrders, null, 2));
+  process.exit(0);
 }
-run().finally(() => prisma.$disconnect());
+check();

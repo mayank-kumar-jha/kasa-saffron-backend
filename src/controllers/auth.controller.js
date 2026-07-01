@@ -4,7 +4,7 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import prisma from '../config/db.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { sendWelcomeEmail, sendPasswordResetOtpEmail } from '../utils/email.js';
+import { sendWelcomeEmail, sendPasswordResetOtpEmail, sendRegistrationOtpEmail } from '../utils/email.js';
 
 const generateAccessAndRefreshTokens = async (userId) => {
   const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -32,33 +32,77 @@ const generateAccessAndRefreshTokens = async (userId) => {
 const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password, phone } = req.body;
 
-  const existedUser = await prisma.user.findUnique({ where: { email } });
-  if (existedUser) {
+  let user = await prisma.user.findUnique({ where: { email } });
+  if (user && user.isEmailVerified) {
     throw new ApiError(409, 'User with email already exists');
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otpExpires = new Date(Date.now() + 15 * 60000); // 15 mins
 
-  const user = await prisma.user.create({
+  if (user) {
+    user = await prisma.user.update({
+      where: { email },
+      data: {
+        name,
+        password: hashedPassword,
+        phone,
+        signupOtp: otp,
+        signupOtpExpires: otpExpires,
+      }
+    });
+  } else {
+    user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        phone,
+        password: hashedPassword,
+        isEmailVerified: false,
+        signupOtp: otp,
+        signupOtpExpires: otpExpires,
+      }
+    });
+  }
+
+  // Send Registration OTP Email
+  await sendRegistrationOtpEmail(user.email, otp);
+
+  return res.status(200).json(new ApiResponse(200, { email: user.email }, 'OTP sent successfully to email'));
+});
+
+const verifyEmailOtp = asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+  
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user || user.signupOtp !== otp || user.signupOtpExpires < new Date()) {
+    throw new ApiError(400, 'Invalid or expired OTP');
+  }
+
+  // Verify user
+  await prisma.user.update({
+    where: { email },
     data: {
-      name,
-      email,
-      phone,
-      password: hashedPassword,
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      createdAt: true,
-    },
+      isEmailVerified: true,
+      signupOtp: null,
+      signupOtpExpires: null,
+    }
   });
 
-  // Send Welcome Email
+  // Log them in immediately
+  const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user.id);
+  const loggedInUser = { id: user.id, name: user.name, email: user.email, role: user.role };
+  const options = { httpOnly: true, secure: process.env.NODE_ENV === 'production' };
+
+  // Send the welcome email now that they are fully registered
   await sendWelcomeEmail(user.email, user.name);
 
-  return res.status(201).json(new ApiResponse(201, user, 'User registered successfully'));
+  return res
+    .status(200)
+    .cookie('accessToken', accessToken, options)
+    .cookie('refreshToken', refreshToken, options)
+    .json(new ApiResponse(200, { user: loggedInUser, accessToken, refreshToken }, 'User verified and logged in successfully'));
 });
 
 const loginUser = asyncHandler(async (req, res) => {
@@ -210,4 +254,5 @@ export {
   oauthCallback,
   forgotPassword,
   resetPassword,
+  verifyEmailOtp,
 };

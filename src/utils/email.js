@@ -211,6 +211,47 @@ export const sendPasswordResetOtpEmail = async (email, otp) => {
   }
 };
 
+export const sendRegistrationOtpEmail = async (email, otp) => {
+  try {
+    const mailOptions = {
+      from: '"Kasa Saffron" <info@kasasaffron.com>',
+      to: email,
+      subject: 'Verify your Kasa Saffron Account',
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #E6C587; border-radius: 8px; overflow: hidden;">
+          <div style="background-color: #2c0107; padding: 30px; text-align: center;">
+            <h2 style="color: #E6C587; margin: 0; font-family: 'Times New Roman', serif; letter-spacing: 2px;">WELCOME TO KASA SAFFRON</h2>
+          </div>
+          <div style="padding: 40px 30px; background-color: #fdfaf5; text-align: center;">
+            <p style="font-size: 16px; margin-bottom: 20px;">Thank you for registering! Please use the verification code below to activate your account.</p>
+            
+            <div style="margin: 40px 0;">
+              <span style="background-color: #BD561A; color: #fff; padding: 14px 40px; border-radius: 4px; font-weight: bold; font-size: 24px; letter-spacing: 5px;">${otp}</span>
+            </div>
+
+            <p style="font-size: 14px; color: #555; margin-bottom: 30px;">This code will expire in 15 minutes. If you did not create an account with us, please ignore this email.</p>
+            
+            <hr style="border: 0; height: 1px; background-color: #E6C587; margin: 30px 0;">
+            
+            <p style="font-size: 14px; color: #555; margin: 0;">Warmest Regards,</p>
+            <p style="font-size: 16px; color: #720303; font-weight: bold; font-family: 'Times New Roman', serif; margin-top: 5px;">The Kasa Saffron Team</p>
+          </div>
+          <div style="background-color: #f4e4cf; padding: 15px; text-align: center; font-size: 12px; color: #888;">
+            <p style="margin: 0;">© ${new Date().getFullYear()} Kasa Saffron. All rights reserved.</p>
+          </div>
+        </div>
+      `,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Registration OTP email sent: %s', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('Error sending registration OTP email:', error);
+    throw error;
+  }
+};
+
 export const sendPaymentConfirmationEmail = async (email, name, orderId, totalAmount) => {
   try {
     const mailOptions = {
