@@ -30,7 +30,8 @@ const generateAccessAndRefreshTokens = async (userId) => {
 };
 
 const registerUser = asyncHandler(async (req, res) => {
-  const { name, email, password, phone } = req.body;
+  let { name, email, password, phone } = req.body;
+  email = email.toLowerCase();
 
   let user = await prisma.user.findUnique({ where: { email } });
   if (user && user.isEmailVerified) {
@@ -73,10 +74,12 @@ const registerUser = asyncHandler(async (req, res) => {
 });
 
 const verifyEmailOtp = asyncHandler(async (req, res) => {
-  const { email, otp } = req.body;
+  let { email, otp } = req.body;
+  email = email.toLowerCase();
   
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || user.signupOtp !== otp || user.signupOtpExpires < new Date()) {
+    console.error(`OTP verify failed for ${email}: user=${!!user}, expectedOtp=${user?.signupOtp}, receivedOtp=${otp}, isExpired=${user ? user.signupOtpExpires < new Date() : false}`);
     throw new ApiError(400, 'Invalid or expired OTP');
   }
 
@@ -106,11 +109,16 @@ const verifyEmailOtp = asyncHandler(async (req, res) => {
 });
 
 const loginUser = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  let { email, password } = req.body;
+  email = email.toLowerCase();
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
     throw new ApiError(404, 'User does not exist');
+  }
+
+  if (!user.isEmailVerified) {
+    throw new ApiError(403, 'Please verify your email before logging in. You can sign up again to resend the OTP.');
   }
 
   if (!user.password) {
@@ -225,7 +233,8 @@ const oauthCallback = asyncHandler(async (req, res) => {
 });
 
 const forgotPassword = asyncHandler(async (req, res) => {
-  const { email } = req.body;
+  let { email } = req.body;
+  email = email.toLowerCase();
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) throw new ApiError(404, 'User not found');
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -235,7 +244,8 @@ const forgotPassword = asyncHandler(async (req, res) => {
 });
 
 const resetPassword = asyncHandler(async (req, res) => {
-  const { email, otp, password } = req.body;
+  let { email, otp, password } = req.body;
+  email = email.toLowerCase();
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || user.resetPasswordOtp !== otp || user.resetPasswordOtpExpires < new Date()) {
     throw new ApiError(400, 'Invalid or expired OTP');
