@@ -43,7 +43,7 @@ const addToCart = asyncHandler(async (req, res) => {
 
   const product = await prisma.product.findUnique({ where: { id: productId } });
   if (!product) throw new ApiError(404, 'Product not found');
-  if (product.stock < quantity) throw new ApiError(400, 'Not enough stock available');
+  // if (product.stock < quantity) throw new ApiError(400, 'Not enough stock available');
 
   let cart = await prisma.cart.findFirst({
     where: userId ? { userId } : { sessionId },
@@ -68,7 +68,7 @@ const addToCart = asyncHandler(async (req, res) => {
   let cartItem;
   if (existingCartItem) {
     const newQuantity = existingCartItem.quantity + quantity;
-    if (newQuantity > product.stock) throw new ApiError(400, 'Cannot add more than available stock');
+    // if (newQuantity > product.stock) throw new ApiError(400, 'Cannot add more than available stock');
 
     cartItem = await prisma.cartItem.update({
       where: { id: existingCartItem.id },
@@ -98,7 +98,7 @@ const updateCartItem = asyncHandler(async (req, res) => {
   });
 
   if (!cartItem) throw new ApiError(404, 'Cart item not found');
-  if (quantity > cartItem.product.stock) throw new ApiError(400, 'Not enough stock available');
+  // if (quantity > cartItem.product.stock) throw new ApiError(400, 'Not enough stock available');
 
   const updatedCartItem = await prisma.cartItem.update({
     where: { id: cartItemId },
