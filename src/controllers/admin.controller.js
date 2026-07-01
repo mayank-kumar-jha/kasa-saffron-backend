@@ -301,7 +301,7 @@ const updateAdminCredentials = asyncHandler(async (req, res) => {
 
 const getUsers = asyncHandler(async (req, res) => {
   const users = await prisma.user.findMany({
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
+    select: { id: true, name: true, email: true, role: true, createdAt: true, phone: true, isEmailVerified: true },
     orderBy: { createdAt: 'desc' }
   });
   return res.status(200).json(new ApiResponse(200, users, 'Users fetched'));
