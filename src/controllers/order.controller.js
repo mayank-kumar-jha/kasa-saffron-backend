@@ -9,7 +9,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const createCheckoutSession = asyncHandler(async (req, res) => {
   const userId = req.user.id;
-  const { shippingAddressId, billingAddressId, items } = req.body;
+  const { shippingAddressId, billingAddressId, items, notes } = req.body;
 
   if (!items || items.length === 0) {
     throw new ApiError(400, 'Cart is empty');
@@ -94,6 +94,7 @@ const createCheckoutSession = asyncHandler(async (req, res) => {
       shippingAddressId: addressId,
       billingAddressId: billingAddressId || addressId,
       status: 'PENDING',
+      notes,
       orderItems: {
         create: orderItemsList
       },
