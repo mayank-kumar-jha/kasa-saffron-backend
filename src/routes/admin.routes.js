@@ -23,7 +23,6 @@ router.route('/stats').get(getDashboardStats);
 router.route('/orders').get(getAllOrders);
 router.route('/credentials').put(updateAdminCredentials);
 
-import { upload } from '../middlewares/multer.middleware.js';
 import { uploadImage } from '../controllers/admin.controller.js';
 router.route('/upload').post(upload.single('image'), uploadImage);
 
