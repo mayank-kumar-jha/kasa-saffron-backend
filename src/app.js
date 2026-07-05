@@ -28,7 +28,9 @@ app.use(helmet());
 app.use(cors({
   origin: [
     process.env.CORS_ORIGIN || 'http://localhost:5173',
-    'https://kasasaffron-frontend-rust.vercel.app'
+    'https://kasasaffron-frontend-rust.vercel.app',
+    'https://kasasaffron.com',
+    'https://www.kasasaffron.com'
   ],
   credentials: true,
 }));
