@@ -1,4 +1,5 @@
 const cache = new Map();
+const MAX_CACHE_SIZE = 1000; // Prevent unbounded memory growth
 
 /**
  * Retrieves an item from the cache.
@@ -22,6 +23,11 @@ export const getCache = (key) => {
  * @param {number} ttlSec Time to live in seconds (default 5 minutes)
  */
 export const setCache = (key, value, ttlSec = 300) => {
+  // Evict oldest entries if cache exceeds max size
+  if (cache.size >= MAX_CACHE_SIZE && !cache.has(key)) {
+    const oldestKey = cache.keys().next().value;
+    cache.delete(oldestKey);
+  }
   cache.set(key, {
     value,
     expiry: Date.now() + ttlSec * 1000

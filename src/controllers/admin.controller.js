@@ -285,8 +285,26 @@ const updateAdminCredentials = asyncHandler(async (req, res) => {
     return res.status(400).json(new ApiResponse(400, null, 'Invalid current password'));
   }
 
+  // Validate new email format if provided
+  if (newEmail) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newEmail)) {
+      return res.status(400).json(new ApiResponse(400, null, 'Invalid email format'));
+    }
+    // Check if email is already taken by another user
+    const existing = await prisma.user.findUnique({ where: { email: newEmail.toLowerCase() } });
+    if (existing && existing.id !== userId) {
+      return res.status(409).json(new ApiResponse(409, null, 'Email already in use'));
+    }
+  }
+
+  // Validate new password strength if provided
+  if (newPassword && newPassword.length < 8) {
+    return res.status(400).json(new ApiResponse(400, null, 'New password must be at least 8 characters'));
+  }
+
   const dataToUpdate = {};
-  if (newEmail) dataToUpdate.email = newEmail;
+  if (newEmail) dataToUpdate.email = newEmail.toLowerCase();
   if (newPassword) dataToUpdate.password = await bcrypt.hash(newPassword, 10);
 
   await prisma.user.update({

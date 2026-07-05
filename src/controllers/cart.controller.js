@@ -103,6 +103,8 @@ const addToCart = asyncHandler(async (req, res) => {
 const updateCartItem = asyncHandler(async (req, res) => {
   const { cartItemId } = req.params;
   const { quantity } = req.body;
+  const userId = req.user?.id;
+  const sessionId = req.cookies?.sessionId || req.headers['x-session-id'];
 
   if (!quantity || quantity < 1) {
     throw new ApiError(400, 'Quantity must be at least 1');
@@ -110,10 +112,18 @@ const updateCartItem = asyncHandler(async (req, res) => {
 
   const cartItem = await prisma.cartItem.findUnique({
     where: { id: cartItemId },
-    include: { product: true },
+    include: { product: true, cart: true },
   });
 
   if (!cartItem) throw new ApiError(404, 'Cart item not found');
+
+  // Verify ownership: cart must belong to the requesting user or session
+  if (cartItem.cart.userId && cartItem.cart.userId !== userId) {
+    throw new ApiError(403, 'You do not have permission to update this cart item');
+  }
+  if (!cartItem.cart.userId && cartItem.cart.sessionId !== sessionId) {
+    throw new ApiError(403, 'You do not have permission to update this cart item');
+  }
 
   // Stock validation intentionally disabled
   // if (quantity > cartItem.product.stock) {
@@ -131,6 +141,24 @@ const updateCartItem = asyncHandler(async (req, res) => {
 // Remove Cart Item
 const removeCartItem = asyncHandler(async (req, res) => {
   const { cartItemId } = req.params;
+  const userId = req.user?.id;
+  const sessionId = req.cookies?.sessionId || req.headers['x-session-id'];
+
+  const cartItem = await prisma.cartItem.findUnique({
+    where: { id: cartItemId },
+    include: { cart: true },
+  });
+
+  if (!cartItem) throw new ApiError(404, 'Cart item not found');
+
+  // Verify ownership
+  if (cartItem.cart.userId && cartItem.cart.userId !== userId) {
+    throw new ApiError(403, 'You do not have permission to remove this cart item');
+  }
+  if (!cartItem.cart.userId && cartItem.cart.sessionId !== sessionId) {
+    throw new ApiError(403, 'You do not have permission to remove this cart item');
+  }
+
   await prisma.cartItem.delete({ where: { id: cartItemId } });
   return res.status(200).json(new ApiResponse(200, null, 'Item removed from cart'));
 });

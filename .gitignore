@@ -4,3 +4,11 @@ logs/
 .DS_Store
 stripe.exe
 stripe.zip
+
+# Test and debug scripts (should not be in production)
+test*.js
+check*.js
+fix_*.js
+list_*.js
+revert_*.js
+update-admin.js

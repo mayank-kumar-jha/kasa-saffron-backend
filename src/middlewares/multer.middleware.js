@@ -23,4 +23,19 @@ const storage = multer.diskStorage({
   },
 });
 
-export const upload = multer({ storage });
+// Security: only allow image uploads with size limit
+const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const maxFileSize = 5 * 1024 * 1024; // 5MB
+
+export const upload = multer({
+  storage,
+  limits: { fileSize: maxFileSize },
+  fileFilter: (req, file, cb) => {
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files (JPEG, PNG, WebP, GIF) are allowed'), false);
+    }
+  },
+});
+

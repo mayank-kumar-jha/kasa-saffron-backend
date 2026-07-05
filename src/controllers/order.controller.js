@@ -206,17 +206,30 @@ const confirmPaymentStatus = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Missing payment intent or order ID");
   }
 
+  // Verify the order exists and belongs to the authenticated user
+  const existingOrder = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!existingOrder) {
+    throw new ApiError(404, "Order not found");
+  }
+  if (existingOrder.userId !== req.user.id) {
+    throw new ApiError(403, "You do not have permission to confirm this order");
+  }
+
+  // Check if already paid
+  if (existingOrder.status !== 'PENDING') {
+    return res.status(200).json(new ApiResponse(200, existingOrder, "Order already processed"));
+  }
+
   // Verify directly with Stripe
   const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-  
+
   if (paymentIntent.status !== 'succeeded') {
     return res.status(400).json(new ApiResponse(400, null, "Payment not succeeded in Stripe"));
   }
 
-  // Check if already paid
-  const existingOrder = await prisma.order.findUnique({ where: { id: orderId } });
-  if (existingOrder && existingOrder.status !== 'PENDING') {
-    return res.status(200).json(new ApiResponse(200, existingOrder, "Order already processed"));
+  // Verify the paymentIntent actually belongs to this order (prevents cross-order hijacking)
+  if (paymentIntent.metadata.orderId !== orderId) {
+    throw new ApiError(400, "Payment intent does not match this order");
   }
 
   // Process payment

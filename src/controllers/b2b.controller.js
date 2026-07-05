@@ -34,6 +34,12 @@ const updateB2BLeadStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
+  // Validate status against allowed enum values
+  const validStatuses = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL_SENT', 'CONVERTED', 'REJECTED'];
+  if (!status || !validStatuses.includes(status)) {
+    throw new ApiError(400, `Invalid status. Must be one of: ${validStatuses.join(', ')}`);
+  }
+
   const lead = await prisma.b2BLead.update({
     where: { id },
     data: { status },

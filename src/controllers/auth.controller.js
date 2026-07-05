@@ -4,6 +4,7 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import prisma from '../config/db.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { sendWelcomeEmail, sendPasswordResetOtpEmail, sendRegistrationOtpEmail } from '../utils/email.js';
 
 const generateAccessAndRefreshTokens = async (userId) => {
@@ -21,9 +22,11 @@ const generateAccessAndRefreshTokens = async (userId) => {
     { expiresIn: process.env.REFRESH_TOKEN_EXPIRY }
   );
 
+  // Store hashed refresh token in DB to prevent theft from database breaches
+  const hashedRefreshToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
   await prisma.user.update({
     where: { id: userId },
-    data: { refreshToken },
+    data: { refreshToken: hashedRefreshToken },
   });
 
   return { accessToken, refreshToken };
@@ -46,7 +49,7 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otp = crypto.randomInt(100000, 999999).toString();
   const otpExpires = new Date(Date.now() + 15 * 60000); // 15 mins
 
   if (user) {
@@ -95,18 +98,34 @@ const verifyEmailOtp = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'OTP has expired. Please request a new one by signing up again.');
   }
 
+  // Brute-force protection: check attempt count
+  if (user.otpAttempts >= 5) {
+    // Invalidate OTP after too many failed attempts
+    await prisma.user.update({
+      where: { email },
+      data: { signupOtp: null, signupOtpExpires: null, otpAttempts: 0 },
+    });
+    throw new ApiError(429, 'Too many failed attempts. Please request a new OTP by signing up again.');
+  }
+
   // OTP value check
   if (user.signupOtp !== otp) {
+    // Increment attempt counter
+    await prisma.user.update({
+      where: { email },
+      data: { otpAttempts: { increment: 1 } },
+    });
     throw new ApiError(400, 'Invalid OTP. Please check and try again.');
   }
 
-  // Verify user
+  // Verify user — reset attempt counter
   await prisma.user.update({
     where: { email },
     data: {
       isEmailVerified: true,
       signupOtp: null,
       signupOtpExpires: null,
+      otpAttempts: 0,
     }
   });
 
@@ -130,21 +149,15 @@ const loginUser = asyncHandler(async (req, res) => {
   email = email.toLowerCase();
 
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) {
-    throw new ApiError(404, 'User does not exist');
-  }
 
-  if (!user.isEmailVerified) {
-    throw new ApiError(403, 'Please verify your email before logging in. You can sign up again to resend the OTP.');
-  }
-
-  if (!user.password) {
-    throw new ApiError(401, 'Please login using your Google or Facebook account');
+  // Use generic error messages to prevent user enumeration
+  if (!user || !user.isEmailVerified || !user.password) {
+    throw new ApiError(401, 'Invalid email or password');
   }
 
   const isPasswordValid = await bcrypt.compare(password, user.password);
   if (!isPasswordValid) {
-    throw new ApiError(401, 'Invalid user credentials');
+    throw new ApiError(401, 'Invalid email or password');
   }
 
   const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user.id);
@@ -187,7 +200,9 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       throw new ApiError(401, 'Invalid refresh token');
     }
 
-    if (incomingRefreshToken !== user.refreshToken) {
+    // Compare hashed incoming token with stored hash
+    const hashedIncoming = crypto.createHash('sha256').update(incomingRefreshToken).digest('hex');
+    if (hashedIncoming !== user.refreshToken) {
       throw new ApiError(401, 'Refresh token is expired or used');
     }
 
@@ -220,22 +235,18 @@ const oauthCallback = asyncHandler(async (req, res) => {
 
   // We redirect to frontend and pass the user id / token in query param for one-time sync
   // Then the frontend will store it in localStorage.
-  const userJson = encodeURIComponent(JSON.stringify({
-    id: req.user.id, name: req.user.name, email: req.user.email, role: req.user.role
-  }));
-
   res
     .status(200)
     .cookie('accessToken', accessToken, options)
     .cookie('refreshToken', refreshToken, options)
-    .redirect(`${frontendUrl}/?token=${accessToken}&user=${userJson}`);});
+    .redirect(`${frontendUrl}/?oauth=success`);});
 
 const forgotPassword = asyncHandler(async (req, res) => {
   let { email } = req.body;
   email = email.toLowerCase();
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) throw new ApiError(404, 'User not found');
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otp = crypto.randomInt(100000, 999999).toString();
   await prisma.user.update({ where: { email }, data: { resetPasswordOtp: otp, resetPasswordOtpExpires: new Date(Date.now() + 10 * 60000) } });
   await sendPasswordResetOtpEmail(email, otp);
   return res.status(200).json(new ApiResponse(200, {}, 'OTP sent successfully'));
@@ -245,11 +256,33 @@ const resetPassword = asyncHandler(async (req, res) => {
   let { email, otp, password } = req.body;
   email = email.toLowerCase();
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || user.resetPasswordOtp !== otp || user.resetPasswordOtpExpires < new Date()) {
+
+  if (!user || !user.resetPasswordOtp || user.resetPasswordOtpExpires < new Date()) {
     throw new ApiError(400, 'Invalid or expired OTP');
   }
+
+  // Brute-force protection for password reset OTP
+  if (user.otpAttempts >= 5) {
+    await prisma.user.update({
+      where: { email },
+      data: { resetPasswordOtp: null, resetPasswordOtpExpires: null, otpAttempts: 0 },
+    });
+    throw new ApiError(429, 'Too many failed attempts. Please request a new OTP.');
+  }
+
+  if (user.resetPasswordOtp !== otp) {
+    await prisma.user.update({
+      where: { email },
+      data: { otpAttempts: { increment: 1 } },
+    });
+    throw new ApiError(400, 'Invalid OTP. Please check and try again.');
+  }
+
   const hashedPassword = await bcrypt.hash(password, 10);
-  await prisma.user.update({ where: { email }, data: { password: hashedPassword, resetPasswordOtp: null, resetPasswordOtpExpires: null } });
+  await prisma.user.update({
+    where: { email },
+    data: { password: hashedPassword, resetPasswordOtp: null, resetPasswordOtpExpires: null, otpAttempts: 0 },
+  });
   return res.status(200).json(new ApiResponse(200, {}, 'Password reset successfully'));
 });
 

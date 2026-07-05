@@ -30,6 +30,12 @@ const updateContactStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
+  // Validate status against allowed enum values
+  const validStatuses = ['NEW', 'IN_PROGRESS', 'RESOLVED'];
+  if (!status || !validStatuses.includes(status)) {
+    throw new ApiError(400, `Invalid status. Must be one of: ${validStatuses.join(', ')}`);
+  }
+
   const contact = await prisma.contactRequest.update({
     where: { id },
     data: { status },
