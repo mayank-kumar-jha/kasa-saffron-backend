@@ -1,8 +1,24 @@
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import prisma from '../config/db.js';
 import bcrypt from 'bcryptjs';
 import { getCache, setCache, clearCachePrefix } from '../utils/cache.util.js';
+import { uploadOnCloudinary } from '../utils/cloudinary.js';
+
+export const uploadImage = asyncHandler(async (req, res) => {
+  if (!req.file && (!req.files || req.files.length === 0)) {
+    throw new ApiError(400, 'No image file provided');
+  }
+  const fileToUpload = req.file || req.files[0];
+  const uploadResult = await uploadOnCloudinary(fileToUpload.path);
+  
+  if (!uploadResult?.secure_url) {
+    throw new ApiError(500, 'Failed to upload image to Cloudinary');
+  }
+  
+  return res.status(200).json(new ApiResponse(200, { url: uploadResult.secure_url }, 'Image uploaded successfully'));
+});
 
 const getDashboardStats = asyncHandler(async (req, res) => {
   // Aggregate sales
