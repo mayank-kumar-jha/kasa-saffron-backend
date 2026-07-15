@@ -78,6 +78,7 @@ const limiter = rateLimit({
   max: 500,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false }
 });
 app.use('/api', limiter);
 
@@ -88,6 +89,7 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { statusCode: 429, message: 'Too many attempts. Please try again in 15 minutes.' },
+  validate: { xForwardedForHeader: false }
 });
 app.use('/api/v1/auth/login', authLimiter);
 app.use('/api/v1/auth/register', authLimiter);
