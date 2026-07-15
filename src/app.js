@@ -12,6 +12,9 @@ import logger from './config/logger.js';
 
 const app = express();
 
+// Trust the first proxy (e.g., Vercel, Heroku, Nginx) for rate limiting to work correctly
+app.set('trust proxy', 1);
+
 // Sentry Init
 // Sentry.init({
 //   dsn: process.env.SENTRY_DSN,
