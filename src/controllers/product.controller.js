@@ -70,6 +70,8 @@ const getAllProducts = asyncHandler(async (req, res) => {
   const result = { products, total, page, limit };
   setCache(cacheKey, result, 300);
 
+  // Instruct Vercel Edge Network to cache this API response for 5 minutes globally
+  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=59');
   return res.status(200).json(new ApiResponse(200, result, 'Products fetched successfully'));
 });
 
@@ -90,6 +92,8 @@ const getProductBySlug = asyncHandler(async (req, res) => {
   }
 
   setCache(cacheKey, product, 300);
+  // Instruct Vercel Edge Network to cache this API response for 5 minutes globally
+  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=59');
   return res.status(200).json(new ApiResponse(200, product, 'Product fetched successfully'));
 });
 
