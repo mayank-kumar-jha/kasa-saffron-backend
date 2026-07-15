@@ -132,6 +132,7 @@ const getEvents = asyncHandler(async (req, res) => {
     image: e.image,
   }));
   setCache('admin_events', formattedEvents, 300);
+  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=59');
   return res.status(200).json(new ApiResponse(200, formattedEvents, 'Events fetched'));
 });
 
@@ -190,6 +191,7 @@ const getGallery = asyncHandler(async (req, res) => {
     image: img.imageUrl,
   }));
   setCache('admin_gallery', formatted, 300);
+  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=59');
   return res.status(200).json(new ApiResponse(200, formatted, 'Gallery fetched'));
 });
 
@@ -253,6 +255,7 @@ const getContent = asyncHandler(async (req, res) => {
 
   const result = Object.keys(data).length > 0 ? data : null;
   setCache(cacheKey, result, 300);
+  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=59');
   return res.status(200).json(new ApiResponse(200, result, 'Content fetched'));
 });
 
